@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🎉 English Full Trainer 🎉</title>
+<style>
+body{font-family:'Segoe UI',Tahoma,Verdana,sans-serif;margin:0;padding:0;background:linear-gradient(to right,#ffecd2,#fcb69f);color:#333;}
+header{background:#ff6f61;color:#fff;text-align:center;padding:20px 0;font-size:26px;font-weight:bold;box-shadow:0 4px 8px rgba(0,0,0,0.2);}
+.container{max-width:900px;margin:20px auto;background:#fff;border-radius:12px;padding:20px;box-shadow:0 4px 10px rgba(0,0,0,0.1);}
+textarea{width:100%;height:130px;padding:10px;font-size:16px;border-radius:8px;border:2px solid #ff6f61;resize:vertical;}
+.buttons{display:flex;flex-wrap:wrap;gap:10px;margin-top:15px;}
+button{background:#ff6f61;color:#fff;border:none;padding:12px 18px;border-radius:8px;cursor:pointer;font-size:16px;transition:0.2s;}
+button:hover{background:#ff3b2e;}
+select{padding:8px;border-radius:6px;border:1px solid #ccc;font-size:16px;}
+#status{font-weight:bold;margin-left:10px;}
+h3{margin-top:20px;color:#ff6f61;}
+.report{background:#fff8f5;padding:15px;border-radius:10px;margin-top:15px;}
+.word-span{display:inline-block;padding:4px 6px;margin:3px;border-radius:6px;font-weight:500;}
+.word-ok{background:#d4fcd4;}
+.word-sub{background:#ffd6d6;}
+.word-miss{background:#fff3b3;}
+.word-ins{background:#d3e0ff;}
+.bad{background:#ffd6d6;padding:6px;margin-top:5px;border-radius:6px;}
+.good{background:#d4fcd4;padding:6px;margin-top:5px;border-radius:6px;}
+.sp-sm{font-size:13px;padding:4px 8px;margin-left:4px;cursor:pointer;}
+.flex-between{display:flex;justify-content:space-between;align-items:center;gap:10px;}
+</style>
+</head>
+<body>
+<header>🎉 English Full Trainer 🎉</header>
+<div class="container">
+<label><strong>Paste your English text here:</strong></label>
+<textarea id="original">Type or paste your English text here!</textarea>
+
+<div class="buttons">
+<button id="grammarBtn">Check Grammar & Vocabulary</button>
+<button id="startRec">🎤 Start Recording</button>
+<button id="stopRec" disabled>🛑 Stop</button>
+<button id="playCorrect">🔊 Play Correct Script</button>
+<button id="analyzeBtn">📝 Analyze Pronunciation</button>
+<select id="voiceSelect"></select>
+<span id="status">Status: idle</span>
+</div>
+
+<h3>Transcript (what the browser heard)</h3>
+<div id="transcript"><em>— none —</em></div>
+
+<div class="report" id="grammarReport" style="display:none">
+<h4>Grammar & Vocabulary Suggestions</h4>
+<div id="grammarList"></div>
+</div>
+
+<div class="report" id="pronReport" style="display:none">
+<div class="flex-between"><h4>Pronunciation Analysis</h4><div><strong>WER:</strong> <span id="wer">-</span></div></div>
+<p><strong>Original text colored by pronunciation:</strong></p>
+<div id="originalWithSpans" style="padding:10px;min-height:60px;background:#fff;border-radius:6px;border:1px solid #ccc;"></div>
+<details>
+<summary>Problematic Words (click to open)</summary>
+<div id="badWords" style="margin-top:8px"></div>
+</details>
+</div>
+</div>
+
+<script>
+const originalTA=document.getElementById('original');
+const grammarBtn=document.getElementById('grammarBtn');
+const grammarReport=document.getElementById('grammarReport');
+const grammarList=document.getElementById('grammarList');
+const startRec=document.getElementById('startRec');
+const stopRec=document.getElementById('stopRec');
+const statusChip=document.getElementById('status');
+const transcriptDiv=document.getElementById('transcript');
+const analyzeBtn=document.getElementById('analyzeBtn');
+const pronReport=document.getElementById('pronReport');
+const alignmentDiv=document.getElementById('originalWithSpans');
+const badWordsDiv=document.getElementById('badWords');
+const werSpan=document.getElementById('wer');
+const playCorrectBtn=document.getElementById('playCorrect');
+const voiceSelect=document.getElementById('voiceSelect');
+
+let recognition; let finalTranscript='';
+
+if(!('SpeechRecognition' in window||'webkitSpeechRecognition' in window)){statusChip.textContent='Speech API not supported. Use Chrome/Edge.';startRec.disabled=true;analyzeBtn.disabled=true;}
+const SpeechRecognition=window.SpeechRecognition||window.webkitSpeechRecognition;
+if(SpeechRecognition){
+recognition=new SpeechRecognition();
+recognition.continuous=true;recognition.interimResults=true;recognition.lang='en-US';
+recognition.onresult=(e)=>{let interim='';for(let i=e.resultIndex;i<e.results.length;i++){const res=e.results[i];if(res.isFinal)finalTranscript+=res[0].transcript+' ';else interim+=res[0].transcript;}
+transcriptDiv.innerHTML='<strong>Final:</strong>'+escapeHtml(finalTranscript.trim())+'<br><strong>Interim:</strong>'+escapeHtml(interim.trim());};
+recognition.onerror=(err)=>{statusChip.textContent='Error: '+(err.error||'unknown');};
+recognition.onend=()=>{statusChip.textContent='Status: idle';startRec.disabled=false;stopRec.disabled=true;};
+}
+
+startRec.addEventListener('click',()=>{finalTranscript='';transcriptDiv.textContent='';pronReport.style.display='none';recognition.start();startRec.disabled=true;stopRec.disabled=false;statusChip.textContent='Status: recording... 🎤';});
+stopRec.addEventListener('click',()=>{recognition.stop();startRec.disabled=false;stopRec.disabled=true;statusChip.textContent='Status: stopped';});
+
+function simpleTokenize(s){return s.toLowerCase().replace(/[^\w\s']/g,'').split(/\s+/).filter(Boolean);}
+function alignWords(ref,hyp){const n=ref.length,m=hyp.length;const dp=Array.from({length:n+1},()=>Array(m+1).fill(0));const op=Array.from({length:n+1},()=>Array(m+1).fill(''));for(let i=0;i<=n;i++){dp[i][0]=i;op[i][0]=i?'del':'';}for(let j=0;j<=m;j++){dp[0][j]=j;op[0][j]=j?'ins':'';}for(let i=1;i<=n;i++){for(let j=1;j<=m;j++){if(ref[i-1]===hyp[j-1]){dp[i][j]=dp[i-1][j-1];op[i][j]='eq';}else{const subs=dp[i-1][j-1]+1,del=dp[i-1][j]+1,ins=dp[i][j-1]+1;dp[i][j]=Math.min(subs,del,ins);op[i][j]=dp[i][j]===subs?'sub':dp[i][j]===del?'del':'ins';}}}let i=n,j=m,aligned=[];while(i>0||j>0){const o=op[i][j]||'sub';if(o==='eq'){aligned.unshift({type:'eq',ref:ref[i-1],hyp:hyp[j-1]});i--;j--;}else if(o==='sub'){aligned.unshift({type:'sub',ref:ref[i-1],hyp:hyp[j-1]});i--;j--;}else if(o==='del'){aligned.unshift({type:'del',ref:ref[i-1],hyp:null});i--;}else{aligned.unshift({type:'ins',ref:null,hyp:hyp[j-1],isExtra:true});j--;}}return {edits:dp[n][m],aligned};}
+
+analyzeBtn.addEventListener('click',()=>{const origTokens=simpleTokenize(originalTA.value);const recTokens=simpleTokenize(finalTranscript);if(!origTokens.length){alert('Type your text first!');return;}const res=alignWords(origTokens,recTokens);const wer=(res.edits/origTokens.length)*100;werSpan.textContent=wer.toFixed(1)+'%';alignmentDiv.innerHTML='';const wrapper=document.createElement('div');wrapper.style.lineHeight='1.8';res.aligned.forEach(c=>{if(c.isExtra)return;const span=document.createElement('span');span.className='word-span '+(c.type==='eq'?'word-ok':c.type==='sub'?'word-sub':'word-miss');span.textContent=c.ref;span.style.marginRight='6px';wrapper.appendChild(span);});alignmentDiv.appendChild(wrapper);pronReport.style.display='block';});
+
+/* LanguageTool */
+grammarBtn.addEventListener('click',async ()=>{const text=originalTA.value.trim();if(!text){alert('Type text first!');return;}grammarList.innerHTML='Checking...';grammarReport.style.display='block';try{const form=new URLSearchParams();form.append('text',text);form.append('language','en-US');const r=await fetch('https://api.languagetool.org/v2/check',{method:'POST',body:form});const data=await r.json();grammarList.innerHTML='';if(!data.matches||!data.matches.length){grammarList.innerHTML='<div class="good">No suggestions! ✅</div>';}else{data.matches.forEach(m=>{const d=document.createElement('div');d.className='bad';const from=m.offset,to=m.offset+m.length;const context=text.substring(Math.max(0,from-30),Math.min(text.length,to+30));d.innerHTML='<strong>Issue:</strong>'+escapeHtml(m.message)+'<br/><strong>Context:</strong>…'+escapeHtml(context)+'…';grammarList.appendChild(d);});}}catch(e){grammarList.innerHTML='<div class="bad">Error: '+escapeHtml(e.message)+'</div>';}});
+
+function populateVoices(){const voices=speechSynthesis.getVoices();voiceSelect.innerHTML='';voices.filter(v=>v.lang&&v.lang.startsWith('en')).forEach(v=>{const opt=document.createElement('option');opt.value=v.name;opt.textContent=v.name+' ('+v.lang+')';voiceSelect.appendChild(opt);});}
+populateVoices(); if(speechSynthesis.onvoiceschanged!==undefined)speechSynthesis.onvoiceschanged=populateVoices;
+function speakText(text,rate=1.0){if(!text)return;const u=new SpeechSynthesisUtterance(text);const sel=voiceSelect.value;if(sel){const v=speechSynthesis.getVoices().find(v=>v.name===sel);if(v)u.voice=v;}u.rate=rate;u.lang='en-US';speechSynthesis.cancel();speechSynthesis.speak(u);}
+playCorrectBtn.addEventListener('click',()=>{const txt=
